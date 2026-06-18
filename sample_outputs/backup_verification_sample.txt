@@ -1,0 +1,34 @@
+-- Daily backup verification on ORADEMO (fictional).
+
+SQL> SELECT input_type, status, TO_CHAR(end_time,'YYYY-MM-DD HH24:MI') AS end_time,
+  2         time_taken_display AS duration
+  3    FROM v$rman_backup_job_details
+  4   WHERE start_time > SYSDATE - 1 ORDER BY start_time DESC;
+
+INPUT_TYPE       STATUS       END_TIME           DURATION
+---------------- ------------ ------------------ ----------
+DB INCR          COMPLETED    2026-06-17 04:03   00:03:38
+ARCHIVELOG       COMPLETED    2026-06-17 04:03   00:00:54
+
+-- Crosscheck + restore feasibility (weekly):
+RMAN> CROSSCHECK BACKUP;
+Crosschecked 66 objects   (all AVAILABLE)
+
+RMAN> RESTORE DATABASE VALIDATE;
+Starting restore ...
+channel ORA_DISK_1: restore validate complete
+Finished restore ... (no corruption found)
+
+RMAN> REPORT NEED BACKUP;
+RMAN retention policy is set to recovery window of 14 days
+Report of files that must be backed up to satisfy 14 days recovery window
+(no rows)
+
+SQL> SELECT * FROM v$database_block_corruption;
+no rows selected
+
+-- Read: last night's incremental and archivelog backups both COMPLETED, all backup
+-- pieces are AVAILABLE (crosscheck clean), RESTORE...VALIDATE confirms the backups are
+-- actually usable, no blocks are corrupt, and REPORT NEED BACKUP shows everything is
+-- protected within the 14-day window. This is the difference between "we take backups"
+-- and "we have verified we can recover."

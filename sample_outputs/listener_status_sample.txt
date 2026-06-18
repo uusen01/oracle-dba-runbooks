@@ -1,0 +1,40 @@
+$ lsnrctl status LISTENER
+
+LSNRCTL for Linux: Version 21.0.0.0.0 - Production
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=your_host)(PORT=1521)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER
+Version                   TNSLSNR for Linux: Version 21.0.0.0.0 - Production
+Start Date                02-JUN-2026 03:14:22
+Uptime                    15 days 2 hr. 51 min.
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=your_host)(PORT=1521)))
+Services Summary...
+Service "ORADEMO"      has 1 instance(s).
+  Instance "ORADEMO", status READY, has 1 handler(s) for this service...
+Service "sales_pdb"    has 1 instance(s).
+  Instance "ORADEMO", status READY, has 1 handler(s) for this service...
+Service "rpt_pdb"      has 1 instance(s).
+  Instance "ORADEMO", status READY, has 1 handler(s) for this service...
+The command completed successfully
+
+----------------------------------------------------------------------------
+-- TROUBLESHOOTING EXAMPLE: app reports ORA-12514 connecting to rpt_pdb
+----------------------------------------------------------------------------
+-- 1) rpt_pdb missing from "Services Summary" above -> service not registered.
+-- 2) Check the PDB:
+SQL> SELECT name, open_mode FROM v$pdbs WHERE name='RPT_PDB';
+NAME                 OPEN_MODE
+-------------------- ------------
+RPT_PDB              MOUNTED            <-- closed, so its service never registered
+
+-- 3) Fix:
+SQL> ALTER PLUGGABLE DATABASE RPT_PDB OPEN;
+SQL> ALTER SYSTEM REGISTER;
+-- rpt_pdb now shows status READY in lsnrctl status; the app reconnects.
+
+-- Read: ORA-12514 ("service not known") almost always means the service isn't
+-- registered -- here because the PDB was MOUNTED, not OPEN. The listener itself was fine.
+-- Opening the PDB (and forcing registration) restored the service. Classic listener
+-- triage: confirm listener up, then confirm the DB/PDB is open and the service is READY.

@@ -1,0 +1,28 @@
+-- Space checks for ORADEMO (fictional).
+
+SQL> SELECT tablespace_name, ROUND(used_percent,1) AS pct_used_of_max
+  2    FROM dba_tablespace_usage_metrics ORDER BY used_percent DESC;
+
+TABLESPACE_NAME      PCT_USED_OF_MAX
+-------------------- ---------------
+APP_DATA                        87.0    <-- ALERT
+SYSAUX                          37.8
+USERS                            9.7
+
+-- Action on APP_DATA (87% of autoextend ceiling):
+SQL> ALTER TABLESPACE APP_DATA ADD DATAFILE
+  2    '/u01/app/oracle/oradata/ORADEMO/app_data02.dbf'
+  3    SIZE 10G AUTOEXTEND ON NEXT 1G MAXSIZE 64G;
+Tablespace altered.
+
+-- FRA usage:
+SQL> SELECT name, ROUND(space_used*100/NULLIF(space_limit,0),1) AS pct_used
+  2    FROM v$recovery_file_dest;
+NAME                                      PCT_USED
+---------------------------------------- --------
+/u01/app/oracle/fast_recovery_area           59.2
+
+-- Read: APP_DATA was at 87% of its ceiling -- caught before ORA-01653. Added a datafile
+-- to relieve it (and would follow up on WHY it grew). FRA is healthy at 59%. This is the
+-- proactive habit: act at ~85%, on a schedule, instead of reacting to a full tablespace
+-- during business hours.

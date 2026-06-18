@@ -1,0 +1,37 @@
+-- Planned shutdown then startup of ORADEMO (CDB). Fictional.
+
+$ lsnrctl stop LISTENER
+The command completed successfully
+
+SQL> SHUTDOWN IMMEDIATE;
+Database closed.
+Database dismounted.
+ORACLE instance shut down.
+
+-- ... host maintenance ...
+
+SQL> STARTUP;
+ORACLE instance started.
+Total System Global Area   2.5770E+10 bytes
+Fixed Size                    9145320 bytes
+Variable Size              4.8318E+09 bytes
+Database Buffers           2.0938E+10 bytes
+Redo Buffers                 24576000 bytes
+Database mounted.
+Database opened.
+
+SQL> SELECT name, open_mode FROM v$pdbs;
+NAME                 OPEN_MODE
+-------------------- ------------
+PDB$SEED             READ ONLY
+SALES_PDB            READ WRITE
+RPT_PDB              READ WRITE
+
+$ lsnrctl start LISTENER
+The command completed successfully
+
+-- Read: clean lifecycle. SHUTDOWN IMMEDIATE closed the DB cleanly; on STARTUP the CDB
+-- opened AND the PDBs came up READ WRITE on their own -- meaning saved state is
+-- configured (otherwise they'd be MOUNTED and need ALTER PLUGGABLE DATABASE ALL OPEN).
+-- Listener stopped first / started last so no half-open connection window. Verified
+-- before handing back to applications.

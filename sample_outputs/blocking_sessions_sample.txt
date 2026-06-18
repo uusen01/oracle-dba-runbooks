@@ -1,0 +1,36 @@
+-- "The app is hung." Blocking check on ORADEMO (fictional).
+
+SQL> SELECT w.sid AS waiter_sid, w.username AS waiter_user, w.event, w.seconds_in_wait,
+  2         b.sid AS blocker_sid, b.username AS blocker_user
+  3    FROM gv$session w
+  4    JOIN gv$session b ON b.inst_id=w.blocking_instance AND b.sid=w.blocking_session
+  5   WHERE w.blocking_session IS NOT NULL
+  6   ORDER BY w.seconds_in_wait DESC;
+
+ WAITER_SID WAITER_USER  EVENT                          SECONDS_IN_WAIT BLOCKER_SID BLOCKER_USER
+----------- ------------ ------------------------------ --------------- ----------- ------------
+        418 APP_USER     enq: TX - row lock contention              742         330 BATCH_USER
+        512 APP_USER     enq: TX - row lock contention              515         330 BATCH_USER
+
+-- Is the blocker itself blocked? (find the root)
+SQL> SELECT sid, blocking_session, status, last_call_et
+  2    FROM v$session WHERE sid = 330;
+ SID BLOCKING_SESSION STATUS    LAST_CALL_ET
+---- ---------------- --------- ------------
+ 330                  INACTIVE          905     <-- root blocker, idle in transaction 15 min
+
+-- After confirming with the batch owner:
+SQL> ALTER SYSTEM KILL SESSION '330,1145,@1' IMMEDIATE;
+System altered.
+
+-- Re-check: waiters cleared
+SQL> SELECT COUNT(*) FROM v$session WHERE blocking_session IS NOT NULL;
+  COUNT(*)
+----------
+         0
+
+-- Read: two APP_USER sessions were blocked 12+ minutes by session 330 (BATCH_USER),
+-- which was the ROOT blocker -- not itself blocked, INACTIVE, holding a row lock with no
+-- commit for 15 minutes (a batch that errored mid-transaction). With the owner's OK the
+-- blocker was killed (rolling back its transaction); the waiters cleared immediately.
+-- Follow-up: fix the batch's commit/error handling so it can't recur.

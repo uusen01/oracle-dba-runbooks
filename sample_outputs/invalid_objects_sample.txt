@@ -1,0 +1,35 @@
+-- After a nightly deploy, check + recompile invalids on ORADEMO (fictional).
+
+SQL> SELECT owner, object_type, COUNT(*)
+  2    FROM dba_objects WHERE status='INVALID'
+  3     AND owner NOT IN ('SYS','SYSTEM','OUTLN','DBSNMP','APPQOSSYS','AUDSYS')
+  4   GROUP BY owner, object_type ORDER BY 3 DESC;
+
+OWNER       OBJECT_TYPE        COUNT(*)
+----------- ------------------ --------
+APP_OWNER   PACKAGE BODY              3
+APP_OWNER   VIEW                      2
+
+-- Recompile database-wide:
+SQL> @?/rdbms/admin/utlrp.sql
+...PL/SQL procedure successfully completed.
+
+-- Re-check:
+SQL> SELECT COUNT(*) FROM dba_objects WHERE status='INVALID'
+  2   AND owner NOT IN ('SYS','SYSTEM','OUTLN','DBSNMP','APPQOSSYS','AUDSYS');
+  COUNT(*)
+----------
+         1                          <-- one did NOT recompile -> real break
+
+-- Find out why:
+SQL> SELECT name, type, line, text FROM dba_errors
+  2   WHERE owner='APP_OWNER' AND name='PKG_ROUTE_CALC' ORDER BY sequence;
+NAME            TYPE          LINE TEXT
+--------------- ------------- ---- --------------------------------------------------
+PKG_ROUTE_CALC  PACKAGE BODY    42 PL/SQL: ORA-00942: table or view does not exist
+
+-- Read: the deploy invalidated 5 objects; utlrp recompiled 4 cleanly (stale, auto-heal
+-- noise). The 5th, PKG_ROUTE_CALC, still fails with ORA-00942 -- a real dependency break:
+-- it references a table the deploy dropped/renamed. That's a release follow-up with the
+-- app team, not something a recompile can fix. Comparing to the pre-deploy baseline (0)
+-- is how the genuine break surfaced.

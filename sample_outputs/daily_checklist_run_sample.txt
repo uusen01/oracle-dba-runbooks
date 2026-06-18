@@ -1,0 +1,44 @@
+-- Morning daily check, spooled. Database: ORADEMO (fictional)
+
+SQL> SELECT status FROM v$instance;
+STATUS
+------------
+OPEN
+
+SQL> SELECT open_mode, log_mode FROM v$database;
+OPEN_MODE            LOG_MODE
+-------------------- ------------
+READ WRITE           ARCHIVELOG
+
+SQL> SELECT name, open_mode, restricted FROM v$pdbs;
+NAME                 OPEN_MODE    RESTRICTED
+-------------------- ------------ ----------
+PDB$SEED             READ ONLY    NO
+SALES_PDB            READ WRITE   NO
+RPT_PDB              READ WRITE   NO
+
+-- Backups (last 24h)
+INPUT_TYPE       STATUS       END_TIME
+---------------- ------------ ----------------
+DB INCR          COMPLETED    2026-06-17 04:03
+
+-- Failed jobs (last 24h)
+no rows selected
+
+-- Blocking sessions
+no rows selected
+
+-- Invalid objects
+   COUNT(*)
+----------
+         0
+
+-- FRA usage
+PCT_USED
+--------
+    59.2
+
+-- Read: clean morning. Instance OPEN + ARCHIVELOG, both app PDBs READ WRITE, last
+-- night's incremental COMPLETED, no failed jobs, no blocking, zero invalids, FRA at 59%.
+-- Nothing to action today -- log it and move on. The value of the daily pass is that a
+-- bad line here (FAILED backup, a blocking chain, FRA at 95%) jumps out immediately.
