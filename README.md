@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="screenshots/oracle-dba-runbooks-banner.png" width="100%">
+</p>
+
 # Oracle DBA Runbooks
 
 Operational **runbooks for day-to-day Oracle production support** — the daily routine,
